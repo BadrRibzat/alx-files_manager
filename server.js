@@ -1,41 +1,13 @@
 import express from 'express';
-import controllerRouting from './routes/index';
-import { MongoClient } from 'mongodb';
+import startServer from './libs/boot';
+import injectRoutes from './routes';
+import injectMiddlewares from './libs/middlewares';
 
-const exPort = process.env.PORT || 5000;
-const app = express();
+const server = express();
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+injectMiddlewares(server);
+injectRoutes(server);
+startServer(server);
 
-// Setup MongoDB connection
-const mongoURL = 'mongodb://localhost:27017';
-const dbName = 'yourDatabaseName';
-
-// Define /stats endpoint
-app.get('/stats', async (req, res) => {
-  try {
-    const client = new MongoClient(mongoURL, { useNewUrlParser: true, useUnifiedTopology: true });
-    await client.connect();
-
-    const db = client.db(dbName);
-    const usersCount = await db.collection('users').countDocuments();
-    const filesCount = await db.collection('files').countDocuments();
-
-    await client.close();
-
-    res.json({ users: usersCount, files: filesCount });
-  } catch (error) {
-    console.error('Error retrieving stats:', error);
-    res.status(500).json({ error: 'Failed to retrieve stats' });
-  }
-});
-
-// Setup routes from index.js
-controllerRouting(app);
-
-// Start the server
-app.listen(exPort, () => {
-  console.log(`Server running on port ${exPort}`);
-});
+export default server;
 

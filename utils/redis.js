@@ -1,43 +1,69 @@
-// Importing the Redis library and promisify function from the Node.js util module.
-const redis = require('redis');
-const { promisify } = require('util');
+import { promisify } from 'util';
+import { createClient } from 'redis';
 
 class RedisClient {
   constructor() {
-    // Creating a new Redis client instance and Promisify the client methods
-    this.client = redis.createClient();
+    this.client = createClient();
+    this.isClientConnected = false;
 
- 
-    this.getAsync = promisify(this.client.get).bind(this.client);
+    this.client.on('error', (err) => {
+      console.error('Redis client error:', err.message || err.toString());
+      this.isClientConnected = false;
+    });
 
-    // Handling Redis client errors and Checking the client is connected
-    this.client.on('error', (error) => {
-      console.log(`Redis client not connected to the server: ${error.message}`);
+    this.client.on('connect', () => {
+      console.log('Redis client connected');
+      this.isClientConnected = true;
     });
   }
 
-
   isAlive() {
-    return this.client.connected;
+    return this.isClientConnected;
   }
 
-  // Async the function to get a value from Redis with promisify expiration key-value time in seconds
   async get(key) {
-    return this.getAsync(key);
+    const getAsync = promisify(this.client.get).bind(this.client);
+    return getAsync(key);
   }
 
   async set(key, value, duration) {
-    this.client.setex(key, duration, value);
+    const setexAsync = promisify(this.client.setex).bind(this.client);
+    await setexAsync(key, duration, value);
   }
 
-  // Async the function to delete a key from Redis
   async del(key) {
-    this.client.del(key);
+    const delAsync = promisify(this.client.del).bind(this.client);
+    await delAsync(key);
   }
 }
 
-// Creating an instance of RedisClient and exported to be used in another modules
 const redisClient = new RedisClient();
 
-module.exports = redisClient;
+// Ensure the client is connected before exporting
+const waitForConnection = () => {
+  return new Promise((resolve) => {
+    if (redisClient.isClientConnected) {
+      resolve();
+    } else {
+      redisClient.client.once('connect', () => {
+        resolve();
+      });
+    }
+  });
+};
 
+export default {
+  isAlive: redisClient.isAlive.bind(redisClient),
+  get: async (key) => {
+    await waitForConnection();
+    return redisClient.get(key);
+  },
+  set: async (key, value, duration) => {
+    await waitForConnection();
+    return redisClient.set(key, value, duration);
+  },
+  del: async (key) => {
+    await waitForConnection();
+    return redisClient.del(key);
+  },
+};
