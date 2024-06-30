@@ -260,4 +260,12 @@ Update the `POST /users` endpoint to start a background processing for sending a
     - If `userId` is not present in the job, raise an error `Missing userId`
     - If no document is found in DB based on the `userId`, raise an error `User not found`
     - Print in the console `Welcome <email>!`
-  - In real life, you can use a third party service like Mailgun to send real email. These API are slow, (sending via SMTP is worst!) and sending emails via a background job is important to optimize API endpoint.
+  - In real life you can use a third party service like Mailgun to send real email. These API are slow, (sending via SMTP is worst!) and sending emails via a background job is important to optimize API endpoint.
+
+Authors:
+Name: "Khaoula OUARDI"
+Github username: "Khaoula15"
+Email: "khaoulasmp@gmail.com"
+
+Name: "BadrRibzat"
+Email: "badrribzat@gmail.com"
