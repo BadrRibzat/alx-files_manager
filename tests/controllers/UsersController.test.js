@@ -1,90 +1,46 @@
-
 import dbClient from '../../utils/db';
 
-describe('+ UserController', () => {
+describe('+ UsersController', () => {
   const mockUser = {
-    email: 'Exemple@gmail.com',
-    password: 'example123',
+    email: 'test@example.com',
+    password: 'password123',
   };
 
-  before(function (done) {
-    this.timeout(10000);
-    dbClient.usersCollection()
-      .then((usersCollection) => {
-        usersCollection.deleteMany({ email: mockUser.email })
-          .then(() => done())
-          .catch((deleteErr) => done(deleteErr));
-      }).catch((connectErr) => done(connectErr));
-    setTimeout(done, 5000);
+  before(async () => {
+    const usersCollection = await dbClient.usersCollection();
+    await usersCollection.deleteMany({});
   });
 
-  describe('+ POST: /users', () => {
-    it('+ Fails when there is no email and there is password', function (done) {
-      this.timeout(5000);
-      request.post('/users')
-        .send({
-          password: mockUser.password,
-        })
-        .expect(400)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Missing email' });
-          done();
-        });
-    });
-
-    it('+ Fails when there is email and there is no password', function (done) {
-      this.timeout(5000);
-      request.post('/users')
-        .send({
-          email: mockUser.email,
-        })
-        .expect(400)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Missing password' });
-          done();
-        });
-    });
-
-    it('+ Succeeds when the new user has a password and email', function (done) {
-      this.timeout(5000);
-      request.post('/users')
-        .send({
-          email: mockUser.email,
-          password: mockUser.password,
-        })
-        .expect(201)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body.email).to.eql(mockUser.email);
-          expect(res.body.id.length).to.be.greaterThan(0);
-          done();
-        });
-    });
-
-    it('+ Fails when the user already exists', function (done) {
-      this.timeout(5000);
-      request.post('/users')
-        .send({
-          email: mockUser.email,
-          password: mockUser.password,
-        })
-        .expect(400)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Already exist' });
-          done();
-        });
-    });
+  it('+ Should create a new user', async () => {
+    const response = await request.post('/users').send(mockUser);
+    expect(response.status).to.equal(201);
+    expect(response.body.email).to.equal(mockUser.email);
   });
 
+  it('+ Should fail if user already exists', async () => {
+    const response = await request.post('/users').send(mockUser);
+    expect(response.status).to.equal(400);
+    expect(response.body.error).to.equal('Already exist');
+  });
+
+  it('+ Should fail if email is missing', async () => {
+    const response = await request.post('/users').send({ password: mockUser.password });
+    expect(response.status).to.equal(400);
+    expect(response.body.error).to.equal('Missing email');
+  });
+
+  it('+ Should fail if password is missing', async () => {
+    const response = await request.post('/users').send({ email: mockUser.email });
+    expect(response.status).to.equal(400);
+    expect(response.body.error).to.equal('Missing password');
+  });
+
+  it('+ Should retrieve user info', async () => {
+    const loginResponse = await request.post('/users').send(mockUser);
+    const token = loginResponse.body.token;
+
+    const response = await request.get('/users/me').set('X-Token', token);
+    expect(response.status).to.equal(200);
+    expect(response.body.email).to.equal(mockUser.email);
+  });
 });

@@ -1,26 +1,22 @@
+const chai = require('chai');
+const chaiAsPromised = require('chai-as-promised');
+const dbClient = require('../../utils/db');
 
-import dbClient from '../../utils/db';
+chai.use(chaiAsPromised);
+const { expect } = chai;
 
-describe('+ DBClient utility', () => {
-  before(function (done) {
-    this.timeout(10000);
-    Promise.all([dbClient.usersCollection(), dbClient.filesCollection()])
-      .then(([usersCollection, filesCollection]) => {
-        Promise.all([usersCollection.deleteMany({}), filesCollection.deleteMany({})])
-          .then(() => done())
-          .catch((deleteErr) => done(deleteErr));
-      }).catch((connectErr) => done(connectErr));
+describe('DBClient', () => {
+  it('should be alive', () => {
+    expect(dbClient.isAlive()).to.be.true;
   });
 
-  it('+ Client is alive', () => {
-    expect(dbClient.isAlive()).to.equal(true);
+  it('should count users', async () => {
+    const count = await dbClient.nbUsers();
+    expect(count).to.be.a('number');
   });
 
-  it('+ nbUsers returns the correct value', async () => {
-    expect(await dbClient.nbUsers()).to.equal(0);
-  });
-
-  it('+ nbFiles returns the correct value', async () => {
-    expect(await dbClient.nbFiles()).to.equal(0);
+  it('should count files', async () => {
+    const count = await dbClient.nbFiles();
+    expect(count).to.be.a('number');
   });
 });

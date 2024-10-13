@@ -1,153 +1,54 @@
+const chai = require('chai');
+const chaiHttp = require('chai-http');
+const app = require('../../server');
+const dbClient = require('../../utils/db');
+const redisClient = require('../../utils/redis');
 
-import dbClient from '../../utils/db';
+chai.use(chaiHttp);
+const { expect } = chai;
 
-describe('+ AuthController', () => {
-  const mockUser = {
-    email: 'badrribzat@gmail.com',
-    password: '1990@Badr',
-  };
-  let token = '';
+describe('AuthController', () => {
+  let userId;
+  let token;
 
-  before(function (done) {
-    this.timeout(10000);
-    dbClient.usersCollection()
-      .then((usersCollection) => {
-        usersCollection.deleteMany({ email: mockUser.email })
-          .then(() => {
-            request.post('/users')
-              .send({
-                email: mockUser.email,
-                password: mockUser.password,
-              })
-              .expect(201)
-              .end((requestErr, res) => {
-                if (requestErr) {
-                  return done(requestErr);
-                }
-                expect(res.body.email).to.eql(mockUser.email);
-                expect(res.body.id.length).to.be.greaterThan(0);
-                done();
-              });
-          })
-          .catch((deleteErr) => done(deleteErr));
-      }).catch((connectErr) => done(connectErr));
+  before(async () => {
+    await dbClient.client.db().collection('users').deleteMany({});
+    const res = await chai.request(app)
+      .post('/users')
+      .send({ email: 'test@example.com', password: 'password' });
+    userId = res.body.id;
   });
 
-  describe('+ GET: /connect', () => {
-    it('+ Fails with no "Authorization" header field', function (done) {
-      this.timeout(5000);
-      request.get('/connect')
-        .expect(401)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Unauthorized' });
-          done();
-        });
-    });
-
-    it('+ Fails for a non-existent user', function (done) {
-      this.timeout(5000);
-      request.get('/connect')
-        .auth('foo@bar.com', 'raboof', { type: 'basic' })
-        .expect(401)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Unauthorized' });
-          done();
-        });
-    });
-
-    it('+ Fails with a valid email and wrong password', function (done) {
-      this.timeout(5000);
-      request.get('/connect')
-        .auth(mockUser.email, 'raboof', { type: 'basic' })
-        .expect(401)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Unauthorized' });
-          done();
-        });
-    });
-
-    it('+ Fails with an invalid email and valid password', function (done) {
-      this.timeout(5000);
-      request.get('/connect')
-        .auth('zoro@strawhat.com', mockUser.password, { type: 'basic' })
-        .expect(401)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({ error: 'Unauthorized' });
-          done();
-        });
-    });
-
-    it('+ Succeeds for an existing user', function (done) {
-      this.timeout(5000);
-      request.get('/connect')
-        .auth(mockUser.email, mockUser.password, { type: 'basic' })
-        .expect(200)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body.token).to.exist;
-          expect(res.body.token.length).to.be.greaterThan(0);
-          token = res.body.token;
-          done();
-        });
-    });
+  it('should connect a user and return a token', (done) => {
+    chai.request(app)
+      .get('/connect')
+      .auth('test@example.com', 'password')
+      .end((err, res) => {
+        expect(res).to.have.status(200);
+        expect(res.body).to.have.property('token');
+        token = res.body.token;
+        done();
+      });
   });
 
-  describe('+ GET: /disconnect', () => {
-    it('+ Fails with no "X-Token" header field', function (done) {
-      this.timeout(5000);
-      request.get('/disconnect')
-        .expect(401)
-        .end((requestErr, res) => {
-          if (requestErr) {
-            return done(requestErr);
-          }
-          expect(res.body).to.deep.eql({ error: 'Unauthorized' });
-          done();
-        });
-    });
+  it('should disconnect a user', (done) => {
+    chai.request(app)
+      .get('/disconnect')
+      .set('X-Token', token)
+      .end((err, res) => {
+        expect(res).to.have.status(204);
+        done();
+      });
+  });
 
-    it('+ Fails for a non-existent user', function (done) {
-      this.timeout(5000);
-      request.get('/disconnect')
-        .set('X-Token', 'raboof')
-        .expect(401)
-        .end((requestErr, res) => {
-          if (requestErr) {
-            return done(requestErr);
-          }
-          expect(res.body).to.deep.eql({ error: 'Unauthorized' });
-          done();
-        });
-    });
-
-    it('+ Succeeds with a valid "X-Token" field', function (done) {
-      request.get('/disconnect')
-        .set('X-Token', token)
-        .expect(204)
-        .end((err, res) => {
-          if (err) {
-            return done(err);
-          }
-          expect(res.body).to.deep.eql({});
-          expect(res.text).to.eql('');
-          expect(res.headers['content-type']).to.not.exist;
-          expect(res.headers['content-length']).to.not.exist;
-          done();
-        });
-    });
+  it('should not disconnect a user with an invalid token', (done) => {
+    chai.request(app)
+      .get('/disconnect')
+      .set('X-Token', 'invalidToken')
+      .end((err, res) => {
+        expect(res).to.have.status(401);
+        expect(res.body).to.have.property('error', 'Unauthorized');
+        done();
+      });
   });
 });

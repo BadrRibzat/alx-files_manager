@@ -1,5 +1,3 @@
-
-import { Request, Response, NextFunction } from 'express';
 export class APIError extends Error {
   constructor(code, message) {
     super();
@@ -10,12 +8,8 @@ export class APIError extends Error {
 
 export const errorResponse = (err, req, res, next) => {
   const defaultMsg = `Failed to process ${req.url}`;
-
   if (err instanceof APIError) {
-    res.status(err.code).json({ error: err.message || defaultMsg });
-    return;
+    return res.status(err.code).json({ error: err.message || defaultMsg });
   }
-  res.status(500).json({
-    error: err ? err.message || err.toString() : defaultMsg,
-  });
+  return res.status(500).json({ error: err ? err.message || err.toString() : defaultMsg });
 };

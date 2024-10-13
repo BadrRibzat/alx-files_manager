@@ -1,4 +1,3 @@
-
 import { expect } from 'chai';
 import redisClient from '../../utils/redis';
 
@@ -20,7 +19,7 @@ describe('+ RedisClient utility', () => {
   it('+ Setting and getting an expired value', async function () {
     await redisClient.set('test_key', 356, 1);
     setTimeout(async () => {
-      expect(await redisClient.get('test_key')).to.not.equal('356');
+      expect(await redisClient.get('test_key')).to.be.null;
     }, 2000);
   });
 
@@ -28,7 +27,6 @@ describe('+ RedisClient utility', () => {
     await redisClient.set('test_key', 345, 10);
     await redisClient.del('test_key');
     setTimeout(async () => {
-      console.log('del: test_key ->', await redisClient.get('test_key'));
       expect(await redisClient.get('test_key')).to.be.null;
     }, 2000);
   });

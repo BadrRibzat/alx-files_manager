@@ -6,10 +6,7 @@ export default class AppController {
     try {
       const redisAlive = await redisClient.isAlive();
       const dbAlive = await dbClient.isAlive();
-      res.status(200).json({
-        redis: redisAlive,
-        db: dbAlive,
-      });
+      res.status(200).json({ redis: redisAlive, db: dbAlive });
     } catch (error) {
       console.error('Error in getStatus:', error);
       res.status(500).json({ error: 'Internal server error' });

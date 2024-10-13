@@ -39,19 +39,6 @@ class RedisClient {
 
 const redisClient = new RedisClient();
 
-// Ensure the client is connected before exporting
-const waitForConnection = () => {
-  return new Promise((resolve) => {
-    if (redisClient.isClientConnected) {
-      resolve();
-    } else {
-      redisClient.client.once('connect', () => {
-        resolve();
-      });
-    }
-  });
-};
-
 export default {
   isAlive: redisClient.isAlive.bind(redisClient),
   get: async (key) => {
