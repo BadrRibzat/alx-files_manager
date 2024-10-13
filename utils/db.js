@@ -1,3 +1,4 @@
+// utils/db.js
 import mongodb from 'mongodb';
 import envLoader from './env_loader';
 
@@ -51,6 +52,14 @@ class DBClient {
       console.error('Error counting files:', error);
       return 0;
     }
+  }
+
+  // Using This method to get the users collection
+  async usersCollection() {
+    if (!this.isAlive()) {
+      await this.connect();
+    }
+    return this.db.collection('users');
   }
 }
 
