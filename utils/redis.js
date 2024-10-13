@@ -3,7 +3,10 @@ import { createClient } from 'redis';
 
 class RedisClient {
   constructor() {
-    this.client = createClient();
+    this.client = createClient({
+      host: '127.0.0.1', // Use localhost or 127.0.0.1
+      port: 6379, // Use the default Redis port
+    });
     this.isClientConnected = false;
 
     this.client.on('error', (err) => {
@@ -18,7 +21,7 @@ class RedisClient {
   }
 
   isAlive() {
-    return this.isClientConnected;
+    return this.isClientConnected; // Directly check the connection status
   }
 
   async get(key) {
@@ -39,18 +42,4 @@ class RedisClient {
 
 const redisClient = new RedisClient();
 
-export default {
-  isAlive: redisClient.isAlive.bind(redisClient),
-  get: async (key) => {
-    await waitForConnection();
-    return redisClient.get(key);
-  },
-  set: async (key, value, duration) => {
-    await waitForConnection();
-    return redisClient.set(key, value, duration);
-  },
-  del: async (key) => {
-    await waitForConnection();
-    return redisClient.del(key);
-  },
-};
+export default redisClient;
