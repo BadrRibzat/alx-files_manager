@@ -4,34 +4,33 @@ import envLoader from './env_loader';
 class DBClient {
   constructor() {
     envLoader();
-    const host = process.env.DB_HOST || 'localhost';
-    const port = process.env.DB_PORT || 27017;
+    const host = process.env.DB_HOST || 'localhost'; // Update with the existing MongoDB host
+    const port = process.env.DB_PORT || 27017; // Update with the existing MongoDB port
     const database = process.env.DB_DATABASE || 'files_manager';
     const dbURL = `mongodb://${host}:${port}/${database}`;
     this.client = new mongodb.MongoClient(dbURL, { useUnifiedTopology: true });
     this.db = null;
-    this.connectionPromise = null;
+    this.connect();
   }
 
   async connect() {
-    if (!this.connectionPromise) {
-      this.connectionPromise = this.client.connect().then(() => {
-        this.db = this.client.db();
-        console.log('MongoDB connected successfully');
-      }).catch((error) => {
-        console.error('MongoDB connection error:', error);
-        this.connectionPromise = null;
-      });
+    try {
+      await this.client.connect();
+      this.db = this.client.db();
+      console.log('MongoDB connected successfully');
+    } catch (error) {
+      console.error('MongoDB connection error:', error);
     }
-    return this.connectionPromise;
   }
 
   isAlive() {
-    return this.client.isConnected();
+    return this.client.topology && this.client.topology.isConnected();
   }
 
   async nbUsers() {
-    await this.connect();
+    if (!this.isAlive()) {
+      await this.connect();
+    }
     try {
       const collection = this.db.collection('users');
       return await collection.countDocuments();
@@ -42,7 +41,9 @@ class DBClient {
   }
 
   async nbFiles() {
-    await this.connect();
+    if (!this.isAlive()) {
+      await this.connect();
+    }
     try {
       const collection = this.db.collection('files');
       return await collection.countDocuments();
@@ -50,16 +51,6 @@ class DBClient {
       console.error('Error counting files:', error);
       return 0;
     }
-  }
-
-  async usersCollection() {
-    await this.connect();
-    return this.db.collection('users');
-  }
-
-  async filesCollection() {
-    await this.connect();
-    return this.db.collection('files');
   }
 }
 
