@@ -2,10 +2,10 @@ import { tmpdir } from 'os';
 import { promisify } from 'util';
 import Queue from 'bull/lib/queue';
 import { v4 as uuidv4 } from 'uuid';
-import { mkdir, writeFile, stat, existsSync, realpath } from 'fs';
+import { mkdir, writeFile, stat, existsSync, realpathSync } from 'fs';
 import { join as joinPath } from 'path';
 import { contentType } from 'mime-types';
-import mongoDBCore from 'mongodb/lib/core';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import { getUserFromXToken } from '../utils/auth';
 
@@ -42,7 +42,7 @@ export default class FilesController {
       const filesCollection = await dbClient.filesCollection();
 
       if (parentId !== ROOT_FOLDER_ID) {
-        const parentFile = await filesCollection.findOne({ _id: new mongoDBCore.BSON.ObjectId(parentId) });
+        const parentFile = await filesCollection.findOne({ _id: new ObjectId(parentId) });
         if (!parentFile) {
           return res.status(400).json({ error: 'Parent not found' });
         }
@@ -56,11 +56,11 @@ export default class FilesController {
       await mkDirAsync(baseDir, { recursive: true });
 
       const newFile = {
-        userId: new mongoDBCore.BSON.ObjectId(userId),
+        userId: new ObjectId(userId),
         name,
         type,
         isPublic,
-        parentId: parentId === ROOT_FOLDER_ID ? '0' : new mongoDBCore.BSON.ObjectId(parentId),
+        parentId: parentId === ROOT_FOLDER_ID ? '0' : new ObjectId(parentId),
       };
 
       if (type !== VALID_FILE_TYPES.folder) {
@@ -88,7 +88,7 @@ export default class FilesController {
     const { id } = req.params;
 
     const filesCollection = await dbClient.filesCollection();
-    const file = await filesCollection.findOne({ _id: new mongoDBCore.BSON.ObjectId(id), userId: user._id });
+    const file = await filesCollection.findOne({ _id: new ObjectId(id), userId: user._id });
 
     if (!file) {
       return res.status(404).json({ error: 'Not found' });
@@ -112,7 +112,7 @@ export default class FilesController {
     const { id } = req.params;
 
     const filesCollection = await dbClient.filesCollection();
-    const file = await filesCollection.findOne({ _id: new mongoDBCore.BSON.ObjectId(id), userId: user._id });
+    const file = await filesCollection.findOne({ _id: new ObjectId(id), userId: user._id });
 
     if (!file) {
       return res.status(404).json({ error: 'Not found' });
@@ -127,7 +127,7 @@ export default class FilesController {
     const { id } = req.params;
 
     const filesCollection = await dbClient.filesCollection();
-    const file = await filesCollection.findOne({ _id: new mongoDBCore.BSON.ObjectId(id), userId: user._id });
+    const file = await filesCollection.findOne({ _id: new ObjectId(id), userId: user._id });
 
     if (!file) {
       return res.status(404).json({ error: 'Not found' });
@@ -142,7 +142,7 @@ export default class FilesController {
     const { id } = req.params;
 
     const filesCollection = await dbClient.filesCollection();
-    const file = await filesCollection.findOne({ _id: new mongoDBCore.BSON.ObjectId(id) });
+    const file = await filesCollection.findOne({ _id: new ObjectId(id) });
 
     if (!file) {
       return res.status(404).json({ error: 'Not found' });
@@ -157,6 +157,6 @@ export default class FilesController {
       return res.status(404).json({ error: 'Not found' });
     }
 
-    return res.status(200).sendFile(realpath(filePath));
+    return res.status(200).sendFile(realpathSync(filePath));
   }
 }
