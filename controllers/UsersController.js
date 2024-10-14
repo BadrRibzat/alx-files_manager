@@ -1,13 +1,12 @@
-import sha1 from 'sha1';
-import Queue from 'bull/lib/queue';
+import Queue from 'bull';
 import dbClient from '../utils/db';
+import { getUserFromXToken } from '../utils/auth';
 
 const userQueue = new Queue('email sending');
 
 export default class UsersController {
   static async postNew(req, res) {
-    const email = req.body ? req.body.email : null;
-    const password = req.body ? req.body.password : null;
+    const { email, password } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Missing email' });
@@ -16,21 +15,24 @@ export default class UsersController {
       return res.status(400).json({ error: 'Missing password' });
     }
 
-    const user = await (await dbClient.usersCollection()).findOne({ email });
-    if (user) {
+    const userExists = await dbClient.getUserByEmail(email);
+    if (userExists) {
       return res.status(400).json({ error: 'Already exist' });
     }
 
-    const hashedPassword = sha1(password);
-    const insertionInfo = await (await dbClient.usersCollection()).insertOne({ email, password: hashedPassword });
-    const userId = insertionInfo.insertedId.toString();
-
+    const userId = await dbClient.createUser(email, password);
     userQueue.add({ userId });
-    return res.status(201).json({ email, id: userId });
+
+    return res.status(201).json({ id: userId, email });
   }
 
   static async getMe(req, res) {
-    const { user } = req;
-    return res.status(200).json({ email: user.email, id: user._id.toString() });
+    const user = await getUserFromXToken(req);
+
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    return res.status(200).json({ id: user._id.toString(), email: user.email });
   }
 }

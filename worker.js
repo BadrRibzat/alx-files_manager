@@ -1,42 +1,38 @@
-import { writeFile } from 'fs';
-import { promisify } from 'util';
-import Queue from 'bull/lib/queue';
-import imgThumbnail from 'image-thumbnail';
-import mongoDBCore from 'mongodb/lib/core';
+import Queue from 'bull';
+import imageThumbnail from 'image-thumbnail';
+import { promises as fs } from 'fs';
+import { ObjectId } from 'mongodb';
 import dbClient from './utils/db';
-import Mailer from './utils/mailer';
 
-const writeFileAsync = promisify(writeFile);
 const fileQueue = new Queue('thumbnail generation');
-const userQueue = new Queue('email sending');
 
-const generateThumbnail = async (filePath, size) => {
-  const buffer = await imgThumbnail(filePath, { width: size });
-  return writeFileAsync(`${filePath}_${size}`, buffer);
+const generateThumbnail = async (path, size) => {
+  const thumbnail = await imageThumbnail(path, { width: size });
+  await fs.writeFile(`${path}_${size}`, thumbnail);
 };
 
-fileQueue.process(async (job, done) => {
-  const { fileId, userId } = job.data;
-  if (!fileId || !userId) {
-    throw new Error('Missing fileId or userId');
-  }
-  const file = await (await dbClient.filesCollection()).findOne({ _id: new mongoDBCore.BSON.ObjectId(fileId), userId: new mongoDBCore.BSON.ObjectId(userId) });
-  if (!file) {
-    throw new Error('File not found');
-  }
-  await Promise.all([500, 250, 100].map(size => generateThumbnail(file.localPath, size)));
-  done();
-});
+fileQueue.process(async (job) => {
+  const { userId, fileId } = job.data;
 
-userQueue.process(async (job, done) => {
-  const { userId } = job.data;
+  if (!fileId) {
+    throw new Error('Missing fileId');
+  }
   if (!userId) {
     throw new Error('Missing userId');
   }
-  const user = await (await dbClient.usersCollection()).findOne({ _id: new mongoDBCore.BSON.ObjectId(userId) });
-  if (!user) {
-    throw new Error('User not found');
+
+  const filesCollection = await dbClient.filesCollection();
+  const file = await filesCollection.findOne({
+    _id: new ObjectId(fileId),
+    userId: new ObjectId(userId),
+  });
+
+  if (!file) {
+    throw new Error('File not found');
   }
-  console.log(`Welcome ${user.email}!`);
-  done();
+
+  const sizes = [500, 250, 100];
+  await Promise.all(sizes.map((size) => generateThumbnail(file.localPath, size)));
 });
+
+export default fileQueue;

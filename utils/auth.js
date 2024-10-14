@@ -1,49 +1,79 @@
-
-import sha1 from 'sha1';
-import { Request } from 'express';
-import mongoDBCore from 'mongodb/lib/core';
-import dbClient from './db';
 import redisClient from './redis';
+import dbClient from './db';
+
+export const getAuthHeader = (request) => {
+  const header = request.headers.authorization;
+  console.log('Auth header:', header);
+  if (!header) {
+    console.log('No auth header found');
+    return null;
+  }
+  return header;
+};
+
+export const extractBase64Credentials = (authHeader) => {
+  const base64Credentials = authHeader.split(' ')[1];
+  const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+  const [email, password] = credentials.split(':');
+  console.log('Extracted credentials:', { email, password: password ? '[REDACTED]' : null });
+  return { email, password };
+};
 
 export const getUserFromAuthorization = async (req) => {
-  const authorization = req.headers.authorization || null;
-
-  if (!authorization) {
+  console.log('getUserFromAuthorization called');
+  const authHeader = getAuthHeader(req);
+  if (!authHeader) {
+    console.log('No auth header, returning null');
     return null;
   }
-  const authorizationParts = authorization.split(' ');
 
-  if (authorizationParts.length !== 2 || authorizationParts[0] !== 'Basic') {
+  const { email, password } = extractBase64Credentials(authHeader);
+  if (!email || !password) {
+    console.log('Missing email or password, returning null');
     return null;
   }
-  const token = Buffer.from(authorizationParts[1], 'base64').toString();
-  const sepPos = token.indexOf(':');
-  const email = token.substring(0, sepPos);
-  const password = token.substring(sepPos + 1);
-  const user = await (await dbClient.usersCollection()).findOne({ email });
 
-  if (!user || sha1(password) !== user.password) {
+  const user = await dbClient.getUserByEmail(email);
+  console.log('User from database:', user);
+  if (!user) {
+    console.log('User not found in database');
     return null;
   }
+
+  const hashedPassword = user.password;
+  const inputHashedPassword = dbClient.hashPassword(password);
+  console.log('Password comparison:', { 
+    storedHash: hashedPassword, 
+    inputHash: inputHashedPassword,
+    match: hashedPassword === inputHashedPassword
+  });
+
+  if (hashedPassword !== inputHashedPassword) {
+    console.log('Password mismatch');
+    return null;
+  }
+
+  console.log('User authenticated successfully');
   return user;
 };
 
 export const getUserFromXToken = async (req) => {
-  const token = req.headers['x-token'];
-
+  console.log('getUserFromXToken called');
+  const token = req.header('X-Token');
+  console.log('X-Token:', token);
   if (!token) {
+    console.log('No X-Token found');
     return null;
   }
-  const userId = await redisClient.get(`auth_${token}`);
-  if (!userId) {
-    return null;
-  }
-  const user = await (await dbClient.usersCollection())
-    .findOne({ _id: new mongoDBCore.BSON.ObjectId(userId) });
-  return user || null;
-};
 
-export default {
-  getUserFromAuthorization: async (req) => getUserFromAuthorization(req),
-  getUserFromXToken: async (req) => getUserFromXToken(req),
+  const userId = await redisClient.get(`auth_${token}`);
+  console.log('UserId from Redis:', userId);
+  if (!userId) {
+    console.log('No userId found in Redis');
+    return null;
+  }
+
+  const user = await dbClient.getUserById(userId);
+  console.log('User from database:', user);
+  return user;
 };
