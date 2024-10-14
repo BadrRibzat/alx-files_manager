@@ -1,51 +1,61 @@
-import { v4 as uuidv4 } from 'uuid';
-import redisClient from '../utils/redis';
+import sha1 from 'sha1';
+import { v4 as uuid4 } from 'uuid';
 import dbClient from '../utils/db';
-import { getUserFromAuthorization } from '../utils/auth';
+import redisClient from '../utils/redis';
 
 class AuthController {
   static async getConnect(req, res) {
-    console.log('getConnect called');
-    console.log('Authorization header:', req.headers.authorization);
-    
-    const user = await getUserFromAuthorization(req);
-    console.log('User from authorization:', user);
+    const encoded = req.headers.authorization.split(' ');
 
-    if (!user) {
-      console.log('User not found, returning Unauthorized');
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (encoded.length < 2) {
+      res.status(401);
+      return res.send({ error: 'Unauthorized' });
     }
 
-    const token = uuidv4();
-    const key = `auth_${token}`;
-    await redisClient.set(key, user._id.toString(), 24 * 60 * 60); // 24 hours expiration
-    console.log('Token set in Redis:', token);
+    const decoded = Buffer.from(encoded[1], 'base64').toString('utf8');
+    const [email, password] = decoded.split(':');
 
-    return res.status(200).json({ token });
+    if (!email || !password) {
+      res.status(401);
+      return res.send({ error: 'Unauthorized' });
+    }
+
+    const user = await dbClient.db.collection('users').findOne({ email, password: sha1(password) });
+
+    if (!user) {
+      res.status(401);
+      return res.send({ error: 'Unauthorized' });
+    }
+
+    const token = uuid4();
+    const key = `auth_${token}`;
+    const duration = 86400;
+    const userId = user._id.toString();
+
+    await redisClient.set(key, userId, duration);
+    res.status(200);
+    return res.send({ token });
   }
 
   static async getDisconnect(req, res) {
-    console.log('getDisconnect called');
-    const token = req.header('X-Token');
-    console.log('X-Token:', token);
+    const token = req.headers['x-token'];
 
     if (!token) {
-      console.log('No token provided, returning Unauthorized');
-      return res.status(401).json({ error: 'Unauthorized' });
+      res.status(401);
+      return res.send({ error: 'Unauthorized' });
     }
 
     const key = `auth_${token}`;
-    const userId = await redisClient.get(key);
-    console.log('UserId from Redis:', userId);
+    const user = await redisClient.get(key);
 
-    if (!userId) {
-      console.log('No userId found in Redis, returning Unauthorized');
-      return res.status(401).json({ error: 'Unauthorized' });
+    if (!user) {
+      res.status(401);
+      return res.send({ error: 'Unauthorized' });
     }
 
     await redisClient.del(key);
-    console.log('Token deleted from Redis');
-    return res.status(204).send();
+    res.status(204);
+    return res.end();
   }
 }
 

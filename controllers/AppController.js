@@ -1,28 +1,16 @@
-import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
-export default class AppController {
-  static async getStatus(req, res) {
-    try {
-      const redisAlive = await redisClient.isAlive();
-      const dbAlive = await dbClient.isAlive();
-      res.status(200).json({ redis: redisAlive, db: dbAlive });
-    } catch (error) {
-      console.error('Error in getStatus:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+class AppController {
+  static getStatus(req, res) {
+    res.status(200);
+    res.send({ redis: redisClient.isAlive(), db: dbClient.isAlive() });
   }
 
   static async getStats(req, res) {
-    try {
-      const [usersCount, filesCount] = await Promise.all([
-        dbClient.nbUsers(),
-        dbClient.nbFiles(),
-      ]);
-      res.status(200).json({ users: usersCount, files: filesCount });
-    } catch (error) {
-      console.error('Error in getStats:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
+    res.status(200);
+    res.send({ users: await dbClient.nbUsers(), files: await dbClient.nbFiles() });
   }
 }
+
+export default AppController;
