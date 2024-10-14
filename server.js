@@ -9,6 +9,7 @@ const port = process.env.PORT || 5000;
 app.use(express.json());
 app.use('/', routes);
 
+<<<<<<< HEAD
 const startServer = () => {
   app.listen(port, () => {
     console.log(`Server running on port ${port}`);
@@ -16,6 +17,11 @@ const startServer = () => {
     console.log('Redis connection status:', redisClient.isAlive());
   });
 };
+=======
+app.use(express.json());
+
+injectRoutes(app);
+>>>>>>> cba075c176d8539895aa2da4a110edb758d9a03a
 
 const waitForConnections = async () => {
   while (!redisClient.isAlive() || !dbClient.isAlive()) {
