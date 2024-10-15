@@ -1,66 +1,41 @@
 import sha1 from 'sha1';
 import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
-import redisClient from '../utils/redis';
 
-class UsersController {
-  static async postNew(req, res) {
+export const postNew = async (req, res) => {
+  try {
     const { email, password } = req.body;
 
     if (!email) {
-      res.status(400);
-      return res.send({ error: 'Missing email' });
+      res.status(400).json({ error: 'Missing email' });
+      return;
     }
-
     if (!password) {
-      res.status(400);
-      return res.send({ error: 'Missing password' });
+      res.status(400).json({ error: 'Missing password' });
+      return;
     }
 
-    const user = await dbClient.db.collection('users').findOne({ email });
+    let user = await dbClient.findUser({ email });
 
     if (user) {
-      res.status(400);
-      return res.send({ error: 'Already exist' });
+      res.status(400).json({ error: 'Already exist' });
+      return;
     }
 
-    const hashedPassword = sha1(password);
-    const newUser = await dbClient.db.collection('users').insertOne({
-      email,
-      password: hashedPassword,
-    });
-    const id = newUser.insertedId;
-
-    res.status(201);
-    return res.send({ id, email });
+    user = await dbClient.createUser(email, sha1(password));
+    res.status(201).json(user);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: 'Server error' });
   }
+};
 
-  static async getMe(req, res) {
-    const token = req.headers['x-token'];
-
-    if (!token) {
-      res.status(401);
-      return res.send({ error: 'Unauthorized' });
-    }
-
-    const key = `auth_${token}`;
-    const userId = await redisClient.get(key);
-
-    if (!userId) {
-      res.status(401);
-      return res.send({ error: 'Unauthorized' });
-    }
-
-    const user = await dbClient.db.collection('users').findOne({ _id: ObjectId(userId) });
-
-    if (!user) {
-      res.status(401);
-      return res.send({ error: 'Unauthorized' });
-    }
-
-    res.status(200);
-    return res.send({ id: user._id, email: user.email });
+export const getMe = async (req, res) => {
+  try {
+    const user = await dbClient.findUser({ _id: ObjectId(req.user.id) });
+    res.status(200).json({ email: user.email, id: user._id });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: 'Server error' });
   }
-}
-
-export default UsersController;
+};
