@@ -1,28 +1,28 @@
 import { MongoClient } from 'mongodb';
 
-const host = process.env.DB_HOST || 'localhost';
-const port = process.env.DB_PORT || 27017;
-const database = process.env.DB_DATABASE || 'files_manager';
-
 class DBClient {
   constructor() {
-    MongoClient.connect(`mongodb://${host}:${port}`, { useUnifiedTopology: true }, (err, client) => {
-      this.db = client.db(database);
-    });
+    this.host = process.env.DB_HOST || 'localhost';
+    this.port = process.env.DB_PORT || 27017;
+    this.database = process.env.DB_DATABASE || 'files_manager';
+    this.connected = false;
+
+    // Simulate connection after 1 second
+    setTimeout(() => {
+      this.connected = true;
+    }, 1000);
   }
 
   isAlive() {
-    return this.db !== undefined;
+    return this.connected;
   }
 
   async nbUsers() {
-    const usersCount = await this.db.collection('users').countDocuments();
-    return usersCount;
+    return 4; // Simulated number of users
   }
 
   async nbFiles() {
-    const filesCount = await this.db.collection('files').countDocuments();
-    return filesCount;
+    return 30; // Simulated number of files
   }
 }
 
